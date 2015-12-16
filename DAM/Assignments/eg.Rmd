@@ -1,0 +1,151 @@
+---
+title: "example1"
+author: "Yichen"
+date: "Saturday, October 24, 2015"
+output: html_document
+---
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+
+
+```{r}
+x1=rnorm(200,1,2)
+y=1+2*x1+rnorm(200)
+model=lm(y~x1)
+model
+```
+
+What about this?
+
+```{r echo=FALSE}
+x1=rnorm(200,1,2)
+y=1+2*x1+rnorm(200)
+model=lm(y~x1)
+model
+```
+
+And this?
+
+```{r eval=FALSE}
+x1=rnorm(200,1,2)
+y=1+2*x1+rnorm(200)
+model=lm(y~x1)
+model
+```
+
+Even this?
+
+```{r results="hide"}
+x1=rnorm(200,1,2)
+y=1+2*x1+rnorm(200)
+model=lm(y~x1)
+model
+```
+
+Lastly, try this?
+
+```{r }
+x1=rnorm(200,1,2)
+y=1+2*x1+rnorm(200)
+model=lm(y~x1)
+summary(model)
+```
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+plot(y~x1)
+abline(a=model$coef[1],b=model$coef[2],lwd=2,col="red")
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+The slope is `r model$coef[2]`.  The intercept is `r model$coef[1]`.  Don't use `model$coef[2]`.
+
+The function `lm` is useful.
+
+# Header 1
+## Header 2
+### Header 3
+#### Header 4
+##### Header 5
+###### Header 6
+
+* unordered list
+* item 2
+    + sub-item 1
+    + sub-item 2
+
+* item 3
+    * sub-item 1
+    * sub-item 2
+
+1. ordered list
+2. item 2
+    + sub-item 1
+    + sub-item 2 
+
+## Getting started
+To work with R Markdown, if necessary:
+
+* Install [R](http://www.r-project.org/)
+* Install the lastest version of [RStudio](http://rstudio.org/download/) (at time of posting, this is 0.96)
+* Install the latest version of the `knitr` package: `install.packages("knitr")`
+
+To run the basic working example that produced this blog post:
+
+1. Open R Studio, and go to File - New - R Markdown
+2. If necessary install `ggplot2` and `lattice` packages: `install.packages("ggplot2"); install.packages("lattice") `
+3. Paste in the contents of this gist (which contains the R Markdown file used to produce this post) and save the file with an `.rmd` extension
+4. Click Knit HTML
+
+endash: --
+emdash: ---
+ellipsis: ...
+
+*italic*
+**bold**
+superscript^2^
+
+A  | B | C
+--- | --- | ---
+1  | Maale | Blue
+2  | Female | Pink
+
+![alt txt](uc-logo.png)
+
+
+The regression is $y_i = \beta_0 + \beta_0 x_i + e_i$.  We can also write
+
+$$\frac{1}{1+\exp(-x)}$$
+
+<!-- This is comment -->
+
+We can do quotes too:
+
+> To be, or not to be, that is the question:
+
+> Whether 'tis nobler in the mind to suffer
+
+> The slings and arrows of outrageous fortune,
+
+```{r, cache=TRUE}
+x1=rnorm(200,1,2)
+x=0
+for (i in 1:1000000)
+{
+  x=x+1
+}
+print(x)
+```
+
+
+
+
+
+
+

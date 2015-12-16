@@ -1,0 +1,548 @@
+/******************************************************************************
+ * Ryan Flannery
+ * 
+ * Machine Learning, Homework 4
+ *
+ * Everything seems to work fine.  The "positive_branches" predicate returns
+ * a list of positive branches in a format that I thought would be acceptable
+ * (it's basically an english version of all positive paths through the ID3
+ * tree).
+ * I've added two additional examples that can be used to test the predicates.
+ * They are both from the book, and are defined below.
+ *****************************************************************************/
+
+
+/* this implements ther id3 algorithm as described in Mitchel's book.
+It uses the file entropy.frl which calculates the entropy of a 
+collection of positive numbers (frequencies).
+*/
+
+
+reload "entropy.frl"
+
+/******************************************************************************
+ * example set is a list, each element of the list starts with a label + or -
+ * followed by the attribute values in order
+ *****************************************************************************/
+((examples PlaySports
+  ((+ Sunny Warm Normal Warm Same) 
+   (+ Sunny Warm  High Warm Same)
+   (- Sunny Cold Low Cool Same) 
+   (- Rainy Cold High Warm  Change)
+   (+ Sunny Warm High Cool Change) 
+  ) 
+))
+
+((examples PlayTennis
+  ((- Sunny Hot High Weak)
+   (- Sunny Hot HIgh Strong)
+   (+ Overcast Hot High Weak)
+   (+ Rain Mild High Weak)
+   (+ Rain Cool Normal Weak)
+   (- Rain Cool Normal Strong)
+   (+ Overcast Cool Normal Strong)
+   (- Sunny Mild High Weak)
+   (+ Sunny Cool Normal Weak)
+   (+ Rain Mild Normal Weak)
+   (+ Sunny Mild Normal Strong)
+   (+ Overcast Mild High Strong)
+   (+ Overcast Hot Normal Weak)
+   (- Rain Mild High Strong)
+  )
+))
+
+((examples EnjoySport
+  ((+ Sunny Warm Normal Strong Warm Same)
+   (+ Sunny Warm High Strong Warm Same)
+   (- Rainy Cold High Strong Warm Change)
+   (+ Sunny Warm High Strong Cool Change)
+  )
+))
+
+
+/******************************************************************************
+ * (attributes CONCEPT LIST) lists the attributes and their values for CONCEPT
+ *****************************************************************************/
+((attributes PlaySports ((Sky 1 (Sunny Rainy)) 
+              (AirTemp 2 (Warm Cold))
+              (Humidity 3 (Normal High Low) )
+              (WaterTemp 4 (Warm Cool) )
+              (Forecast 5 (Same Change)) )))
+
+((attributes PlayTennis 
+             ((Outlook 1 (Sunny Overcast Rain))
+              (Temperature 2 (Hot Mild Cool))
+              (Humidity 3 (High Normal))
+              (Wind 4 (Weak Strong))
+             )))
+
+((attributes EnjoySport
+             ((Sky 1 (Sunny Rainy))
+              (AirTemp 2 (Warm Cold))
+              (Humidity 3 (Normal High))
+              (Wind 4 (Strong))
+              (Water 5 (Warm Cool))
+              (Forecast 6 (Same Change))
+             )))
+
+
+/******************************************************************************
+ * optional : mapping attribute values into acronyms 
+ *****************************************************************************/
+/*
+((same_1 Sunny s))
+((same_1 Rain r))
+((same_1 Normal n))
+((same_1 Warm w))
+((same_1 Cold c))
+((same_1 High h))
+((same_1 Low l))
+((same_1 Cool cl))
+((same_1 Change ch))
+
+((same X Y)(same_1 X Y))
+((same X Y)(same_1 Y X))
+*/
+
+
+/******************************************************************************
+ * (split_positive_negative L POS NEG (NP NN) ) holds when the list L is
+ * split into the list of positive examples POS with NP elements and the list 
+ * of negative examples NEG with NN elements
+ *****************************************************************************/
+((split_positive_negative () ()  () (0 0) ))
+((split_positive_negative ((+ |HT)|T) ((+ |HT)|TP) NEG  (NP NN))
+        (split_positive_negative T TP NEG (NNP NN))
+        (sum NNP 1 NP))
+((split_positive_negative ((- |HT)|T) POS  ((- |HT) | TN) (NP N))
+        (split_positive_negative T POS TN (NP NN))
+        (sum NN 1 N))
+
+
+/******************************************************************************
+ * ( all_are LABEL LIST) holds if all the examples in the list LIST 
+ * are positive examples, that is, each list element is a list starting with
+ * LABEL; LABEL can take on the values + or -
+ *****************************************************************************/
+((all_are _ () ))
+((all_are S ( (S|T1) |T))
+        (all_are S T))
+
+
+/****************************************************************************** 
+ * (most_often_label E LABEL) holds if LABEL is the most often 
+ * encountered in label the list of examples E; LABEL can be + or -.
+ *****************************************************************************/
+((most_often_label E -)
+        (split E EMinus EPlus)
+        (length EMinus LMinus)
+        (length EPlus LPlus)
+        (less LPlus LMinus)(!))
+((most_often_label E +))
+
+
+/******************************************************************************
+ * (select_best_attribute C EX ATTR A1)
+ * holds if A1 is the attribute with best (highest) information gain.
+ * It calls:
+ *      split_positive_negative
+ *      gain
+ *      max_attr
+ *****************************************************************************/
+((select_best_attribute C EX AList A1)
+        (split_positive_negative  EX _ _ EList)
+        (entropy EList ENT)
+        (gain C AList EX ENT GList)
+        (max GList MAX)
+        (nth N GList MAX)
+        (nth N AList A1))
+
+
+/****************************************************************************** 
+ * (gain C ALIST  EXAMP ENTR GLIST), recursive, holds if GLIST is the 
+ * list of gains for the attributes in ALIST given that the entropy for 
+ * the examples EXAMP is ENTR.  It calls:
+ *      number_of_values
+ *      split_by_values
+ *      entropy_list
+ *      sum
+ *****************************************************************************/
+((gain C () _ _ () ))
+((gain C ((A|_)|AT) EX ENT (GH|GT))
+        (attributes C ATTR)
+        (member (A N VALUES) ATTR)
+        (number_of_values N VALUES EX VA_num)
+        (split_by_values N EX VALUES EX_VALUES)
+        (calc_entropys EX_VALUES ENT_LIST)
+        (attribute_entropy ENT_LIST VA_num E)
+        (sum E GH ENT)
+        (gain C AT EX ENT GT))
+
+
+/******************************************************************************
+ * (attribute_entropy ENT VAL E) holds iff E is the entropy of an attribute
+ * with values that have entropys ENT and occur with probability VAL.
+ *****************************************************************************/
+
+/* with no entropy's or probability's to start with, the entropy is zero */
+((attribute_entropy () () 0))
+
+/* if there is only one possible value, then the probability of it is 100
+ * percent, and thus the entropy is simply the entropy of the attribute at
+ * that value.
+ */
+((attribute_entropy (E|()) (P|()) E))
+
+((attribute_entropy (EH|ET) (VH|VT) E)
+        (sum_list (VH|VT) T)
+        (times T X1 VH)
+        (times X1 EH E1)
+        (attribute_entropy ET VT E2)
+        (sum E1 E2 E))
+
+
+/******************************************************************************
+ * (split_by_value N EX V L) hold iff L is a list of all examples in example
+ * set EX where the Nth attribute has a value of V
+ * NOTE: this splits by a SINGLE value V!
+ *****************************************************************************/
+((split_by_value _ () _ () ))
+((split_by_value N (EXH|EXT) V (EXH|T) )
+        (sum N 1 NTH)
+        (nth NTH EXH V)
+        (split_by_value N EXT V T))
+((split_by_value N (EXH|EXT) V L)
+        (split_by_value N EXT V L))
+
+
+/******************************************************************************
+ * (split_by_values N EX VALUES L) holds iff L is a list where each element is
+ * a sub-list of the example set EX, where the value of the Nth attribute of
+ * each example is VALUES (each list in L has a different values for the
+ * attribute, but each example within a given list all have the same value for
+ * that attribute).  confusing, isn't it?
+ * NOTE: this splits by a LIST of values!
+ *****************************************************************************/
+((split_by_values _ _ () () ))
+((split_by_values N EX (VH|VT) (LH|LT))
+         (split_by_value N EX VH LH)
+         (split_by_values N EX VT LT))
+
+
+/******************************************************************************
+ * (calc_entropys EX_VALUES ENT_LIST) holds iff ENT_LIST is a list of
+ * entropys corresponding to the list of example lists EX_VALUES
+ *****************************************************************************/
+
+/* the entropy for an empty list is the null list (no values->no entropy) */
+((calc_entropys () () ))
+
+/* here, we simply split the first example (XH) into positive and negative
+ * division, and use the number of each to calculate the entropy of that 
+ * example set.  we then store it in the next position of the list ENT_LIST
+ * and go to the next set of examples.
+ */
+((calc_entropys (XH|XT) (EH|ET) )
+         (split_positive_negative XH POS NEG ELIST)
+         (entropy ELIST EH)
+         (calc_entropys XT ET))
+
+
+/******************************************************************************
+ * (number_of_values N LA E LE) hold iff LE is a list of the number of
+ * occurances of values LA for the Nth attribute in example set E
+ * NOTE: i add 1 to N since the first item of any example set is always the 
+ * +/- value
+ *****************************************************************************/
+
+/* when there are no values, obviously there are no occurances */
+((number_of_values N () EX ()))
+
+/* the number of times a given value V1 occurs for the NTH attribute in 
+ * example set EX, is is simply the (num of V1 for Nth attribute in EX N1), a
+ * predicate defined immediately after this one for this purpose.
+ */
+((number_of_values N (V1|VT) EX (N1|NT))
+        (sum N 1 NTH)
+        (num_of V1 for NTH attribute in EX N1)
+	(number_of_values N VT EX NT))
+
+
+/******************************************************************************
+ * (num_of V for NTh attribute in EX NV), recursive,  holds if NV is the 
+ * number of times the value V occurred for the NTh attribute.
+ *****************************************************************************/
+
+/* the number of any value for any attribute in an empty example set is 0 */
+((num_of _ for _ attribute in () 0))
+
+/* the number of values V for an attribute is simply 1 (if it's in the head
+ * of the given list) + the number of times it appears in the tail
+ */
+((num_of V for NTH attribute in (H|T) N)
+      (nth NTH H V)
+      (num_of V for NTH attribute in T NN)
+      (sum NN 1 N))
+((num_of V for NTH attribute in (H|T) N)
+      (num_of V for NTH attribute in T N)) 
+
+
+/******************************************************************************
+ * (nth X LIST V) holds iff V is the Xth element in LIST
+ *****************************************************************************/
+
+/* the empty set has no attributes */
+((nth _ () 0))
+
+/* the first attribute of a list is simply the head of a list */
+((nth 1 (H|T) H))
+
+/* the Nth element of a list is the N-1 element of the tail of that list */
+((nth N (H|T) X)(nth NN T X)(sum NN 1 N))
+ 
+
+/******************************************************************************
+ * (list_of_attributes C A) holds iff A is a list of all attribute names for a
+ * given concept C
+ *****************************************************************************/
+((list_of_attributes  C A)(attributes C ATTR)(extract A ATTR))
+
+
+/******************************************************************************
+ * (extract L1 L2) hold iff L2 is a list of lists, and L1 is a list of all
+ * heads from the lists in L2.
+ *****************************************************************************/
+
+/* extracting anything from the empty set results in an empty set */
+((extract () () ))
+
+/* we simply pull the heads off of all lists in L1 and put them into L2 */
+((extract (A|T) ((A|_)|T1))(extract T T1))
+
+
+/******************************************************************************
+ * (entropy_list L E) holds iff L is a list of lists (numeric lists), and E is
+ * a list of entropy's, corresponding to the lists in list L.
+ *****************************************************************************/
+
+/* an empty list has no associated entropy's */
+((entropy_list () ()))
+
+/* the entropy-list is the entropy of the first element of a list plus the
+ * entropy's of all subsequent elements of a list.
+ */
+((entropy_list (H|T) (E|ET))
+        (entropy H E)
+        (entropy_list T ET))
+
+
+/******************************************************************************
+ * (max L X) holds if X is the max element in list L
+ *****************************************************************************/
+
+/* anything can be the max of the empty set */
+((max () _))
+
+((max L X)
+      (member X L)
+      (max_help X L))
+
+/* the max value of a list is a member of a list, such that every other
+ * element is less than or equal to it
+ */
+((max_help _ () )) 
+((max_help X (H|T))
+      (less_eq H X)
+      (max_help X T))
+
+
+/******************************************************************************
+ * (id3 C E AList TREE), recursive, holds if TREE is the decision tree for the
+ * concept C, produced by the id3 algortihm from the example set E where each
+ * example is described using the list of attributes AList.
+ * The tree generated has the following form:
+ *                       (root (child) (child) (child) )
+ * where each of the children are trees as well.  To further describe the
+ * structure, the root is the attribute with the highest information gain, and
+ * each of the child trees correspond to values of the root attribute, along
+ * with their decision trees.  Thus, the following more closely describes the
+ * structure of the tree:
+ *   (root_attribute  (value1 (tree) )  (value2 (tree) )  (value3 (tree) ) )
+ * where "tree" is another tree as described in the previous line.
+ *****************************************************************************/
+
+/* if no examples are available, we can make no hypotheses - return nothing */
+((id3 _ () _ () ))
+
+/* if all examples are positive return the root and label + */
+((id3 C EX AList (+) )
+        (all_are + EX))
+
+/* if all examples are negative return the root and label - */
+((id3 C EX AList (-) )
+        (all_are - EX))
+
+/* when no more attributes are available return the "straw-man" solution */
+((id3 C EX () (L) )
+        (most_often_label EX L))
+
+/* otherwise, we implement the ID3 algorithm as presented in class */
+((id3 C EX AList (A|TREE))
+        (select_best_attribute C EX AList (A N VALUES))
+        (split_by_values N EX VALUES EX_LIST)
+        (delete (A N VALUES) AList ANEW)
+        (make_tree C EX_LIST ANEW VALUES TREE))
+
+
+/******************************************************************************
+ * (make_tree C E A V TREE) holds iff TREE is the ID3 tree constructed for a
+ * concept C with example set E and attributes A, and the set of values V for
+ * which the examples are split.
+ *****************************************************************************/
+
+/* with no examples, the tree is empty */
+((make_tree _ () _ _ () ))
+
+/* the tree is constructed as a list such that all elements are ID3 trees in
+ * their own right.
+ */ 
+((make_tree C (EH|ET) ALIST (VH|VT) ((VH|(TH))|TT))
+        (id3 C EH ALIST TH)
+        (make_tree C ET ALIST VT TT))
+
+
+/******************************************************************************
+ * (positive_branches TREE L) holds iff L is the list of all positive branches
+ * from the ID3 tree TREE.  The list L has the following format:
+ *       ( (ATTR is Val1 and (L1)) or (ATTR is Val2 and (L2)) )
+ * where ATTR is an attribute and Val1 and Val2 are possible values that the
+ * attribute may take on.  L1 and L2 are lists of positive branches for the
+ * tree corresponding to the given attribute and its value (for L1, this is
+ * ATTR = Val1).  Only positive branches are pulled from the ID3 tree.  For
+ * example, given the following ID3 tree:
+ *                  (attr1 (val1 (+)) (val2 (-)))
+ * the following list of positive branches would be generated:
+ *                        (attr1 is val1)
+ * Just as described in class, the list of positive branches will take on the
+ * form of a disjunction of conjunctions.
+ * NOTE: this predicate forms its disjunctions in the following manner: rather
+ * than simply saying (A or B or C) for a 3 element disjunction, this
+ * predicate would state the following: (A or (B or C)).  This is, of course,
+ * logically equivalent, but not as natural as one might think.  using this
+ * format simply affords me greater ease in traversing the tree.
+ *****************************************************************************/
+
+/* if the TREE is empty, L is obviously has no positive branches */
+((positive_branches () () ))
+
+/* first, we note that in removing all negative branches from the tree, all
+ * that is left is positive branches.  Given the ID3 algorithm, we know that
+ * negatives will only appear as leafs (i.e. to remove negatives, we need
+ * only to remove the negative leaf and the given attribute value associated
+ * with it).  All other parts of the tree are necessary for the positive
+ * branches.
+ */
+((positive_branches (A|V) L)
+         (delete (_|((-))) V VNEW)
+         (p_branches A VNEW L))
+
+
+/******************************************************************************
+ * (p_branches A V L) holds iff L is a list of positive branches of the
+ * value-tree list V for attribute A.  i.e. V is the list of all values for
+ * attribute A, and their corresponding sub-trees.  This predicate formats the
+ * positive branches in a 'plain english' format (it interprets the branches
+ * and forms a disjunction of conjunction for all of the positive values).
+ * Basically, p_branches converts a list of value-tree pairs for attribute A
+ * into an 'english' version.
+ * For example, for an attribute called "AirTemp", the following value-tree
+ * pair:
+ *                    (Hot (+)) (Mild (+)) (Cool (-))
+ * would be formatted as follows:
+ *                 (AirTemp is Hot or (AirTemp is Mild))
+ * NOTE that the negative leaf is not present in the enlish version.
+ *****************************************************************************/
+
+/* if the value-tree list is empty, no positive branches exist */
+((p_branches _ () () ))
+
+/* for a list with just one value-tree pair, the positive branch is formed by
+ * calling branch for that value-tree pair.
+ */
+((p_branches A ( VH|() ) LH )
+         (branch A VH LH))
+
+/* for a list with multiple value-tree pairs, the positive branch list is
+ * formed by using branch to create the positive branch for the first value-
+ * tree pair, and recursively calling p_branches for the rest of the elements
+ * in the list.
+ */
+((p_branches A ( VH|VT ) (LH or LT) )
+         (branch A VH LH)
+         (p_branches A VT LT))
+
+/* if the previous predicates failed, it's because the branch predicate
+ * failed, as a result of the value-tree pair being a negative leaf.  Thus,
+ * we omit that value-tree pair from the list of positive-branches, and
+ * continue building the list with the rest of the value-tree pairs.
+ */
+((p_branches A ( VH|VT ) LT )
+         (p_branches A VT LT))
+
+
+/*****************************************************************************
+ * (branch A V L) holds iff L is the 'english' version of the value-tree
+ * pair associated with attribute A.  Essentially, branch just converts the
+ * value-tree pair V for attribute A into an english version.
+ * For example, for an attribute called "AirTemp", the following value-tree
+ * pair:
+ *                               (Hot (+))
+ * would be formatted as follows:
+ *                           (AirTemp is Hot)
+ ****************************************************************************/
+
+/* if there is no value-pair, we can't convert to english */
+((branch _ () () ))
+
+/* for positive leafs, we simply return "A is V", where A is the attribute
+ * and V is the value it takes on.
+ */
+((branch A ( V|((+)) ) (A is V) ))
+
+/* for negative leafs, we simply return "A is not V", where A is the attribute
+ * and V is the value it takes on.
+ * NOTE: this predicate is never actually used!  i usued it initially for
+ * testing purposes.
+ */
+((branch A ( V|((-)) ) (A is not V) ))
+
+/* for value-tree pairs where the tree is not a simpe leaf (either (+) or (-))
+ * we must split the tree into a list of its positive branches.
+ */
+((branch A (V|(T)) (A is V and ST) )
+         (positive_branches T ST))
+
+
+/******************************************************************************
+ * misc. predicates
+ *****************************************************************************/
+
+/* list processing */
+((member H (H|T)))
+((member X (H|T))(member X T))
+
+((length () 0))
+((length (_|T) L)(length T LT)(sum LT 1 L))
+
+((delete ANYEL () () ))
+((delete X (X|L) M)
+        (!)
+        (delete X L M))
+((delete X (Y|L1) (Y|L2))
+        (delete X L1 L2))
+
+/* other misc predicates */
+((greater X Y)(less Y X))
+
+((greater_than _ () ))
+((greater_than X (H|T) )(greater X H)(greater_than X T))

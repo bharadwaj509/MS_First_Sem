@@ -1,0 +1,162 @@
+/******************************************************************************
+ * Ryan Flannery
+ *     I only changed one line in this file, and it was in the entropy
+ *     predicate.  I allowed the predicate to take the entropy of zero (it of
+ *     course just returns zero, but now it doesn't automatically fail).
+ *****************************************************************************/
+
+/* This contains the FRIL predicates for calculating the entropy of a list
+of numbers (frequencies)
+*/
+
+/* 
+(log BASE X N LOG) calculates the logarithm in base BASE of X as 
+approximated by a partition with N elements: 
+   it does it by calling (ln X Y) which calculates the natural log of X 
+   with the same partition, and then using the formula,
+
+    "log in base B of X = (ln X)/(ln B)"
+
+Uses N=10
+*/
+
+
+((log B X RES)
+	(ln X 10 RX)
+	(ln B 10  RB)
+	(times RES RB RX))
+
+
+/* 
+(ln X N Y) calculates the natural log by calling the 
+integral of (1/x) from 1 to X; N determines the partition of the 
+interval [1, X].
+*/
+
+((ln X N Y)
+	(integral inverse 1 X N Y))
+
+/* 
+(integral F A B N I) uses the Simpson Rule (trapezoid) to approximate the 
+integral from A to B of the function F, with the partition determined by N:
+Simpson rule:
+  " the integral from A to B of F = 
+             (B-A)/(3N)[F(x0) + 4F(x1) + 2F(x2) + ... + 4F(Xn-1) + F(Xn)], 
+     where Xi= A + i(B-A)/N, i=0,...,N. " 
+Note: N must be even.
+*/
+
+((integral F A B N I)
+   (even N)
+   (calc_coeff A B N C)
+   (calc_list F  A B N L)
+   (sum_up_multiply C L I))
+
+
+% the function f(x) = 1/x
+((inverse X Y)(times X Y 1))
+
+
+% this is just to check the integral on some easy functions:
+% f(x) = x^2
+((square_f X Y)(times X X Y))
+
+% f(X) = X
+((id X X))
+
+((even X)
+	(division X 2 Y)
+	(times Y 2 X))
+
+/* (calc_coeff A B N C) calculates C = (B-A)/(3N) */
+((calc_coeff A B N C)
+	(sum A I B)
+	(times 3 N N3)
+	(times C N3 I))
+
+/* calc_list calculates the list of points in the partition: 
+	the list starts with the endpoints of the partition: x0=A, xn=B and 
+        continues with x1, x2, ..., xn-1; 
+   
+It calls the predicate:
+	help_calc_list,
+	increment
+*/
+
+((calc_list F A B N (FIRST LAST | T))
+	(F A FIRST)
+	(F B LAST)
+	(increment A B N INC)
+	(help_calc_list F A B INC N T))
+
+
+/* (increment A B N INC) calculates the quantity (B-A)/N */
+
+((increment A B N INC)
+	(sum A I B)
+	(times INC N I))
+
+
+((help_calc_list _ _ _ _ 1 ()))
+((help_calc_list F A B INC N (H|T))
+  (sum A INC A1)
+  (F A1 H)
+  (sum N -1 N1)
+  (help_calc_list F A1 B INC N1 T))
+
+
+/* 
+(sum_up_multiply C L I ) calculates the result of multiplying 
+the sum of the list to the coefficient (B-A)/(3N)
+*/
+
+((sum_up_multiply C L I)
+   (sum_up L S)(times S C I))
+
+((sum_up (F L |T) S)
+	(sum F L FL)
+	(sum_up_help T ST)(sum FL ST S))
+
+((sum_up_help (H) H1)(times 4 H H1))
+((sum_up_help (H4 H2 | T) S)
+	(times H4 4 T4)
+	(times H2 2 T2)
+	(sum T4 T2 T42)
+	(sum_up_help T TS)
+	(sum T42 TS S))
+
+
+/* (entropy LIST E) returns the entropy of the list of positive numbers LIST
+it uses the predicates: 
+	all_positive, 
+	sum_list, 
+	help_calc_entropy
+*/
+
+/*((entropy (H) 0)(!))*/
+((entropy L 0)
+        (member 0 L))
+((entropy L E)
+	(all_positive L)
+	(sum_list L SL)
+	(help_calc_entropy L SL EL)
+	(times -1 EL E))
+
+
+((all_positive () ))
+((all_positive (H|T))
+	(less 0 H)
+	(all_positive T))
+
+((sum_list () 0))
+((sum_list (H|T) S)
+	(sum_list T ST)
+	(sum H ST S))
+
+((help_calc_entropy () _ 0))
+((help_calc_entropy (H|T) SL E)
+	(times SL C H)
+	(log 2 C C2)
+	(times C C2 R)
+	(help_calc_entropy T SL ET)
+        (sum R ET E))

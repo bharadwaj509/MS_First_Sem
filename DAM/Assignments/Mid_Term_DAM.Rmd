@@ -1,0 +1,224 @@
+---
+title: "Midterm_BANA7038001_DATA ANALY METH"
+author: "rajamummidi"
+date: "November 28, 2015"
+output: html_document
+---
+
+<h3>Summary:</h3>
+Landing dataset from 800 commercial flights loaded into R and explored the data by knowing no. of variables and its names from the dataset. Initial step invloves the Data cleaning to address missing values in the variable speed_aircraft.In the given dataset, missing values are not Random and it has some informative missingness. To address this, Used Amelia R package, which uses EMB(Expectation Maximization algorithm with Bayesian classifier) to impute the missing values.From the data visualization part,we came to know the relation among the variables.In order to know correlation and multicollinearity among the variables, performed Variance Inflation factor for all variables and correlation matrix for all variables. speed_ground and speed_air are highly correlated to the distance. From VIF results, both are indicators of high multicollineariry.Removed speed_ground from the consideration to the model regression inorder to reduce variance and improves the best fit. Performed multple liner regression using all variables in the model.From the summery of the model, we came to know that no_pasg, duration and pitch are less significant and removed these variables one by one from the model regression. From the scatter plots, observed there is non-linear relationship between speed_air and distance. So, prepared polynomial regression by taking only speed_air. From the results of this model, observed good improvement interms of co-efficent of determination and F-statistic. Included all significant variables to the model and remodeled regression. That gives better improvement over the previous model. To check the order of the polynomial of the model, performed model checking comparision with order 3 polynomial. there is no good improvement with order 3.So, the polynomial regression with 2 is better one. Performed model adequency with Residual plots. Performed F-test and t-test in order to reject null hypothesis.Finally, came to know from the analysis that speed_air,height and aircraft make are the factors impacting landing distance.
+
+
+<h4>1. Data exploration and data cleaning </h4>
+<h5>Goal: To load the dataset into R and explore and clean the dataset using contraints mentioned for data analysis</h5>
+```{r, echo=TRUE}
+flt_landing_dataset <- read.csv("/Users/Raja/Projects/R_Projects/Landing.csv",h=T)
+colnames(flt_landing_dataset)
+length(colnames(flt_landing_dataset))
+summary(flt_landing_dataset)
+```
+
+
+
+```{r, echo=FALSE}
+#predicting proper values for missing values in speed_air
+library(Amelia)
+test=amelia(flt_landing_dataset[,2:8], m = 2, p2s = 0, frontend = FALSE)
+flt_landing_dataset[,2:8]<-test$imputations$imp2
+#removing the observations whose duration is less than 40 
+refinedDataSet=flt_landing_dataset[flt_landing_dataset$duration>40,]
+#removing the observations whose ground speed and air speed is less than 30 and greater than 140 MPH
+refinedDataSet=refinedDataSet[refinedDataSet$speed_ground>=30,]
+refinedDataSet=refinedDataSet[refinedDataSet$speed_ground<=140,]
+
+#removing the observations whose height is less than 6 
+refinedDataSet=refinedDataSet[refinedDataSet$height>=6,]
+
+#removing the observations whose distance is less than 6000 
+refinedDataSet=refinedDataSet[refinedDataSet$distance<6000,]
+#aircraft manufacture is indicator variable, lets create dummy variable for aircraft make
+refinedDataSet$aircraft_make=1*(refinedDataSet$aircraft=="boeing")
+attach(refinedDataSet)
+```
+
+
+<h5>Observations:</h5>
+In the given dataset Landing.csv, there are total 8 variables and 800 observations. For speed_air variable, found 600 missing values. There is one indicator variable aircraft type. Created dummy variable aircraft_make in order to do regression.
+<h5>Conclusion/decision:</h5>
+Need to find whether missing values are random or non random. Missing values are informative. So, we can not ignore them. Missing values can be replaced with Mean or Median. But Mean or Median are prone to skewdness. Better predictor for missing values are decision tree, KNN or Bayesian Classifer. We use Amelia R Package for predicting missing values i.e imputating missing values, which uses EMB(Expectation Maximization algorithm with Bayesian classifier).
+
+
+
+<h4>2. Data visualization</h4>
+<h5>Goal: To show the pairwise plots among variables in the dataset in order to understand relation among the variables.</h5>
+
+```{r, echo=FALSE}
+summary(refinedDataSet)
+pairs(refinedDataSet,pch=20)
+```
+
+<h5>Observations:</h5>
+From the pairwise relation among the variables in the dataset, there is linear relationship between speed_ground and speed_air and between distance and speed_air & speed_ground, it is non linear relationship among them. For aircraft make and distance, it is constant relation. 
+<h5>Conclusion/decision:</h5>
+Lets proceed to Modeling with all covariates.Analyse from the model.In order to predict the relations, Need to find the correlation among the variables. Find the Variance Inflation Factor to know which is contributing more towards VIF.
+
+
+<h4>3&4. Modeling with all covariates & Model checking  </h4>
+<h5>Goal: To make a model by including all variables in the model(multiple linear regression) and analyse the summary of the model</h5>
+```{r, echo=FALSE}
+faamodel <- lm(distance~(no_pasg+duration+speed_ground+speed_air+height+pitch+aircraft_make),data=refinedDataSet)
+summary(faamodel)
+par(mfrow=c(2,2))
+plot(faamodel)
+```
+<h5>Observations:</h5>
+From the summary of multiple linear regression, no_pasg,duration,pitch are showing less significance.We see non-linear relationship between residuals and fitted values.Normal Q-Q plot distribution giving variation when plotting againsy standard residuals.
+<h5>Conclusion/decision:</h5>
+Need to find multicolinearity among the variables. Find VIF(Variance inflation factor) and remove unnecessary variables from the model in order to make best fit the data.Need to go for polynomial instead of linear regression. 
+
+
+<h4> 5. Re-exploration of data </h4>
+<h5>Goal:In repetative process,Need to check the model and removing insignificant variables one by one</h5>
+```{r, echo=FALSE}
+cor(refinedDataSet[,2:9])
+#check the multi collinearity using VIF
+library(car)
+vif(faamodel)
+```
+<h5>Observations:</h5>
+Large VIF means it is indicator of multicolinearity.Also from colinearity matrix, there is high correlation between speed_ground and speed_air. 
+<h5>Conclusion/decision:</h5>
+We need to remove speed_ground. Inclusion of both variables slows down the process.We will go ahead and remove speed_ground from the model.
+
+
+
+<h4>6. Re-modeling by removing insignificant variables one at a time. </h4>
+<h5>Goal: Rep1 :In repetative process,remove insignificant variables one by one.Remove no. of passenger</h5>
+
+```{r, echo=FALSE}
+faamodel2 <- lm(distance~(duration+speed_air+height+pitch+aircraft_make),data=refinedDataSet)
+summary(faamodel2)
+#4. Model checking summary 
+#checking qq-plot and qqline 
+par(mfrow=c(2,2))
+plot(faamodel2)
+```
+<h5>Observations:</h5>
+Even we remove no_pasg variable and speed_ground, there is no much improvement in residuals plots.Still there is non-linear relationship between residuals and fitted values. QQ plot is not distributed properly.
+
+<h5>Rep2:In repetative process,remove insignificant variables one by one.Remove duration</h5>
+
+```{r, echo=FALSE}
+faamodel3 <- lm(distance~(speed_air+height+pitch+aircraft_make),data=refinedDataSet)
+summary(faamodel3)
+#4. Model checking summary 
+#checking qq-plot and qqline 
+par(mfrow=c(2,2))
+plot(faamodel3)
+```
+<h5>Observations:</h5>
+Even we remove no_pasg variable,speed_ground and duration. There is no much improvement in residuals plots.Still there is non-linear relationship between residuals and fitted values. QQ plot is not distributed properly.
+
+
+<h5>Rep4:In repetative process,remove insignificant variables one by one.Remove pitch</h5>
+```{r, echo=FALSE}
+faamodel4 <- lm(distance~(speed_air+height+aircraft_make),data=refinedDataSet)
+summary(faamodel4)
+#4. Model checking summary 
+#checking qq-plot and qqline 
+par(mfrow=c(2,2))
+plot(faamodel4)
+```
+<h5>Observations:</h5>
+Even we remove no_pasg variable,speed_ground,duration and pitch. There is no much improvement in residuals plots.Still there is non-linear relationship between residuals and fitted values. QQ plot is not distributed properly.
+<h5>Conclusion/decision:</h5>
+Though there variables are insignificant and removing from the regression model, there is no improvement in the model fitting. Even though we observed F-statistic and R2 and adjusted R2 values improved by removing one by one variable. From the scatter plot between distance and speed_air, it shows quadratic relation between them.we need to do ploynomial regression using variables speed_air, height and aircraft make.
+
+```{r, echo=FALSE}
+plot(distance~speed_air)
+```
+<h4>9. Finalizing the model </<h4>
+<h4>Goal:We need to do polynomial regression, with quadratic power in speed_air and taking other variables in the first order
+```{r, echo=FALSE}
+faamodel5 <- lm(distance~(refinedDataSet$speed_air+I(refinedDataSet$speed_air^2)),data=refinedDataSet)
+summary(faamodel5)
+par(mfrow=c(2,2))
+plot(faamodel5)
+```
+<h5>Observations:</h5>
+Constructing model, distance as polynomial funciton of speed_air.We found better improvement in F-statistic and Rsqare and adjusted R-square values.QQ-Plot distrubution is good for the model. 
+
+
+
+<h4>Goal:Improve the model by including all other significant variables.
+```{r, echo=FALSE}
+faamodel6 <-lm(distance~(speed_air+I(speed_air^2)+height+aircraft_make),data=refinedDataSet)
+summary(faamodel6)
+#Modeling checking 
+par(mfrow=c(2,2))
+plot(faamodel6)
+```
+<h5>Observations:</h5>
+ F-statistic and Rsqare and adjusted R-square values are better than only polynomical function   of speed_air. Inclusion of these two variables height and aircraft_make reduced residual error squres SSres.QQ-Plot distrubution is good for the model. 
+
+
+<h4>Goal:Lets check with tertiary power regression modeling and compare it with quadratic equation.</h4>
+```{r, echo=FALSE}
+faamodel7 <-lm(distance~(speed_air+I(speed_air^2)+I(speed_air^3)+height+aircraft_make),data=refinedDataSet)
+summary(faamodel7)
+#Modeling checking 
+par(mfrow=c(2,2))
+plot(faamodel7)
+
+```
+<h5>Observations:</h5>
+ Though there is less improvement in co-efficient of determination value forfaamodel7 . F-statistic is good for faamodel6.It is better to have faamodel6 instead of complicating the model with higher powers.
+ 
+ 
+<h4>Goal:Model Adequency. In order to check adequency, lets review residual plots like normal distribution, independently distributed and constant variance assumptions </h4>
+```{r, echo=FALSE}
+par(mfrow=c(2,2))
+#Normally distributed 
+hist(faamodel6$residuals)
+
+#independently distributed
+qqnorm(faamodel6$residuals)
+qqline(faamodel6$residuals)
+
+#constant variance
+plot(faamodel6$residuals~faamodel6$fitted.values)
+plot(faamodel6$residuals~distance)
+``` 
+ <h5>Observations:</h5>
+ From the residual plots, residuals distribution is normally distributed.  From the quantile-quantile plot, the distribution is independent. From the plots with fitted values and response variable distance, it is constant variance. 
+ 
+
+<h4>Goal:Model Adequency.Test for Significance of Regression (sometimes called the global test of model adequacy). Tests on Individual Regression Coefficients (or groups of coefficients)</h4>
+```{r, echo=FALSE}
+SSR = anova(faamodel6)[1,2] + anova(faamodel6)[2,2]+ anova(faamodel6)[3,2]+ anova(faamodel6)[4,2]
+SSRes = anova(faamodel6)[5,2]
+SST = SSR + SSRes
+
+deg_freedom=faamodel6$df.residual
+F_value = (SSR/4)/(SSRes/deg_freedom)
+P_value = 1-pf(F_value,4,deg_freedom)
+print(F_value)
+print(P_value)
+
+
+summary(faamodel6)
+summary(faamodel6)$coef
+vardf=df.residual(faamodel6) 
+#performing t-test
+abs(summary(faamodel6)$coef[,3])
+
+#t0 alpha/2 = 2.101 
+#t value for all variables is greater than t0, so we are rejecting null hypothesis beta0
+``` 
+ <h5>Observations:</h5>
+ From the computation of F-value and P-Value, we can reject the null hypothesis. F -significant values for each variable in the model shown in the summary of model coefficients, all are indicating high significance of F-Value. From the results of t-test, t0 alpha/2 value is 2.101. from the t-test, all variables have greater value than t0. So we are rejecting null hyothesis. 
+ <h5>Conclusion:</h5>
+ From the above results, it shows that regression model using speed_air power 2 is good fitting for the model. The final model for the given dataset is 
+distance=2143.8378-79.8199*speed_air+ 0.7633*speed_air^2+ 13.4172*height+379.4006*aircraft_make
+ 
+ So speed_air,height and aircraft make are the factors impacting landing distance.
