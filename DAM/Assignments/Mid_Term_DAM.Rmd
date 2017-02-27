@@ -1,7 +1,6 @@
 ---
 title: "Midterm_BANA7038001_DATA ANALY METH"
 author: "baradwaj"
-date: "November 28, 2015"
 output: html_document
 ---
 
